@@ -33,5 +33,6 @@ jobs:
           cd private-repo
           git add .
           git commit -m "Sync desde repo público 🚀" || echo "Sin cambios"
-          git push origin HEAD:public-sync
+          git push --force origin HEAD:public-sync
+
 
