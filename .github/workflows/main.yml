@@ -1,0 +1,36 @@
+name: Sync to Private Repo
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del repo público
+        uses: actions/checkout@v3
+
+      - name: Sincronizar con privado sin borrar nada
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@users.noreply.github.com"
+
+          # Clona el repo privado con .git incluido
+          git clone https://x-access-token:${{ secrets.PRIVATE_REPO_TOKEN }}@github.com/BorisFaj/remedios.git private-repo
+
+          # Copia archivos del repo público al repo privado
+          rsync -av --progress ./ private-repo/ \
+            --exclude=".git/" \
+            --exclude=".github/" \
+            --exclude=".gitignore" \
+            --exclude="remedios/log/" \
+            --exclude="test/" \
+            --exclude="README.md" \
+            --exclude="diagrama.webp"
+
+          cd private-repo
+          git add .
+          git commit -m "Sync desde repo público 🚀" || echo "Sin cambios"
+          git push origin main
