@@ -1,3 +1,4 @@
+import psycopg2
 from gpt4all import GPT4All
 import torch
 import warnings
@@ -47,13 +48,46 @@ def load_model():
 
         logger.info("✅ Modelo cargado correctamente.")
 
+def get_last_messages(phone_number, limit=5):
+    """Recupera los últimos mensajes de la conversación desde PostgreSQL."""
+    conn = psycopg2.connect(
+        host="golismeos.c5aqi48uyz13.eu-north-1.rds.amazonaws.com",
+        port="5432",
+        dbname="golismeos",
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASS")
+    )
+    cur = conn.cursor()
+
+    # Obtener los últimos mensajes del usuario y del bot
+    cur.execute("""
+        SELECT sender, message FROM messages
+        WHERE sender = %s OR receiver = %s
+        ORDER BY timestamp DESC
+        LIMIT %s;
+    """, (phone_number, phone_number, limit))
+
+    messages = cur.fetchall()
+    conn.close()
+
+    # Formatear como historial
+    history = [f"{'Usuario' if sender == phone_number else 'IA'}: {text}" for sender, text in reversed(messages)]
+    return "\n".join(history)
+
+
 def ask(message: str, from_number: str) -> str:
     # Asegurar que el modelo esté cargado
     load_model()
 
+    # Recuperar historial desde la base de datos
+    history = get_last_messages(from_number)
+
+    # Construir el prompt con contexto
+    prompt = f"{history}\nUsuario: {message}\nAsistente:"
+
     # Generar respuesta
     response = __gpt_model.generate(
-        prompt=message,
+        prompt=prompt,
         max_tokens=250,
         temp=0.7,
         top_k=40,
